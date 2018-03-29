@@ -18,6 +18,7 @@ env/
 pip-log.txt
 pip-delete-this-directory.txt
 Pipfile.lock
+Pipfile
 
 # Project specific
 raw_data/

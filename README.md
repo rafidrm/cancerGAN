@@ -26,11 +26,17 @@ python setup.py install
 pip install visdom
 pip install dominate
 ```
-- Training on facades dataset:
+- Add checkpoints and datasets directories.
 ```
-python train.py --dataroot ./datasets/facades --name facades_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction BtoA --lambda_A 100 --dataset_mode aligned --no_lsgan --norm batch --pool_size 0
+cd cancerGAN/
+mkdir checkpoints
+mkdir datasets
 ```
-- Training on cancer dataset:
-```
-python train.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction BtoA --lambda_A 100 --datset_mode aligned --no_lsgan --norm_batch --pool_size 0 --loadSize 256 --print_freq 500
-```
+- Training on facades dataset (make sure you actually download the data, check the original):
+        ```
+                python train.py --dataroot ./datasets/facades --name facades_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction BtoA --lambda_A 100 --dataset_mode aligned --no_lsgan --norm batch --pool_size 0
+                ```
+                - Training on cancer dataset:
+                ```
+                python train.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction BtoA --lambda_A 100 --datset_mode aligned --no_lsgan --norm_batch --pool_size 0 --loadSize 256 --print_freq 500
+                ```
