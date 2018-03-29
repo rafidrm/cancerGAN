@@ -17,6 +17,7 @@ env/
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+Pipfile.lock
 
 # Project specific
 raw_data/
