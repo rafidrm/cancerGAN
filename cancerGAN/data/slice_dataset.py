@@ -18,7 +18,6 @@ class SliceDataset(BaseDataset):
         slice_filetype = ['.mat']
         self.AB_paths = sorted(make_dataset(self.dir_AB, slice_filetype))
         assert self.opt.loadSize == self.opt.fineSize, 'No resize or cropping.'
-        assert self.which_direction == 'AtoB', 'enforce A to B for slices.'
 
     def __getitem__(self, index):
         AB_path = self.AB_paths[index]
