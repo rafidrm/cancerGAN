@@ -27,5 +27,6 @@ checkpoints/
 datasets/
 build/
 dist/
+results/
 
 # Torch specific

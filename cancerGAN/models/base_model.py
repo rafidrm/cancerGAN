@@ -49,7 +49,7 @@ class BaseModel():
 
     def load_network(self, network, network_label, epoch_label):
         ''' Helper load function that can be used in all sub-classes. '''
-        save_filename = '{}_net_{}.pths'.format(epoch_label, network_label)
+        save_filename = '{}_net_{}.pth'.format(epoch_label, network_label)
         save_path = os.path.join(self.save_dir, save_filename)
         network.load_state_dict(torch.load(save_path))
 

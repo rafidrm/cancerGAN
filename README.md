@@ -31,6 +31,7 @@ pip install dominate
 cd cancerGAN/
 mkdir checkpoints
 mkdir datasets
+mkdir results
 ```
 - Training on facades dataset. First make sure you download the dataset. Then run the following:
 ```
@@ -39,4 +40,8 @@ python train.py --dataroot ./datasets/facades --name facades_pix2pix --model pix
 - Training on cancer dataset:
 ```
 python train.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction AtoB --lambda_A 100 --dataset_mode slice --no_lsgan --norm batch --pool_size 0 --loadSize 256 --print_freq 200
+```
+- Testing on cancer dataset:
+```
+python test.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction AtoB --dataset_mode slice --norm batch --loadSize 256
 ```

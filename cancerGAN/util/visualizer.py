@@ -5,7 +5,8 @@ import time
 from . import util
 from . import html
 from scipy.misc import imresize
-
+from scipy.io import savemat 
+import pudb
 
 class Visualizer():
 
@@ -26,6 +27,7 @@ class Visualizer():
         if self.use_html:
             self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
             self.img_dir = os.path.join(self.web_dir, 'images')
+            self.mat_dir = os.path.join(self.web_dir, 'mat')
             print('create web directory %s...' % self.web_dir)
             util.mkdirs([self.web_dir, self.img_dir])
         self.log_name = os.path.join(
@@ -147,6 +149,7 @@ class Visualizer():
         links = []
 
         for label, im in visuals.items():
+            self.save_to_mat(webpage, name, label, im)  # save a matfile
             image_name = '%s_%s.png' % (name, label)
             save_path = os.path.join(image_dir, image_name)
             h, w, _ = im.shape
@@ -160,3 +163,11 @@ class Visualizer():
             txts.append(label)
             links.append(image_name)
         webpage.add_images(ims, txts, links, width=self.win_size)
+
+    def save_to_mat(self, webpage, name, label, im):
+        mat_name = '%s_%s.mat' % (name, label)
+        mat_dir = webpage.get_mat_dir()
+        save_path = os.path.join(mat_dir, mat_name)
+        mat = {label : im}
+        savemat(save_path, mat)
+

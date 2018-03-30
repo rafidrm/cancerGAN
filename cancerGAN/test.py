@@ -5,6 +5,7 @@ from models.models import create_model
 from util.visualizer import Visualizer
 from util import html
 
+
 opt = TestOptions().parse()
 opt.nThreads = 1  # test code only supports 1 thread
 opt.batchSize = 1  # test code only supports 1 batch

@@ -11,10 +11,13 @@ class HTML:
         self.title = title
         self.web_dir = web_dir
         self.img_dir = os.path.join(self.web_dir, 'images')
+        self.mat_dir = os.path.join(self.web_dir, 'mat')
         if not os.path.exists(self.web_dir):
             os.makedirs(self.web_dir)
         if not os.path.exists(self.img_dir):
             os.makedirs(self.img_dir)
+        if not os.path.exists(self.mat_dir):
+            os.makedirs(self.mat_dir)
         # print(self.img_dir)
 
         self.doc = dominate.document(title=title)
@@ -24,6 +27,9 @@ class HTML:
 
     def get_image_dir(self):
         return self.img_dir
+
+    def get_mat_dir(self):
+        return self.mat_dir
 
     def add_header(self, str):
         with self.doc:
