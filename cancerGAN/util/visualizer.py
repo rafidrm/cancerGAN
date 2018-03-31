@@ -169,5 +169,5 @@ class Visualizer():
         mat_dir = webpage.get_mat_dir()
         save_path = os.path.join(mat_dir, mat_name)
         mat = {label : im}
-        savemat(save_path, mat)
+        savemat(save_path, mat, do_compression=True)
 
