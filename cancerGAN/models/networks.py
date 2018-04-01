@@ -20,6 +20,9 @@ def weights_init_normal(m):
     elif classname.find('BatchNorm2d') != -1:
         init.normal(m.weight.data, 1.0, 0.02)
         init.constant(m.bias.data, 0.0)
+    elif classname.find('BatchNorm3d') != -1:
+        init.normal(m.weight.data, 1.0, 0.02)
+        init.constant(m.bias.data, 0.0)
 
 
 def weights_init_xavier(m):
@@ -30,6 +33,9 @@ def weights_init_xavier(m):
     elif classname.find('Linear') != -1:
         init.xavier_normal(m.weight.data, gain=0.02)
     elif classname.find('BatchNorm2d') != -1:
+        init.normal(m.weight.data, 1.0, 0.02)
+        init.constant(m.bias.data, 0.0)
+    elif classname.find('BatchNorm3d') != -1:
         init.normal(m.weight.data, 1.0, 0.02)
         init.constant(m.bias.data, 0.0)
 
@@ -44,6 +50,9 @@ def weights_init_kaiming(m):
     elif classname.find('BatchNorm2d') != -1:
         init.normal(m.weight.data, 1.0, 0.02)
         init.constant(m.bias.data, 0.0)
+    elif classname.find('BatchNorm3d') != -1:
+        init.normal(m.weight.data, 1.0, 0.02)
+        init.constant(m.bias.data, 0.0)
 
 
 def weights_init_orthogonal(m):
@@ -53,6 +62,9 @@ def weights_init_orthogonal(m):
     elif classname.find('Linear') != -1:
         init.orthogonal(m.weight.data, gain=1)
     elif classname.find('BatchNorm2d') != -1:
+        init.normal(m.weight.data, 1.0, 0.02)
+        init.constant(m.bias.data, 0.0)
+    elif classname.find('BatchNorm3d') != -1:
         init.normal(m.weight.data, 1.0, 0.02)
         init.constant(m.bias.data, 0.0)
 
@@ -82,6 +94,10 @@ def get_norm_layer(norm_type='instance'):
     if norm_type == 'batch':
         norm_layer = functools.partial(nn.BatchNorm2d, affine=True)
     elif norm_type == 'instance':
+        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False)
+    elif norm_type == 'batch_3d':
+        norm_layer = functools.partial(nn.BatchNorm2d, affine=True)
+    elif norm_type == 'instance_3d':
         norm_layer = functools.partial(nn.InstanceNorm2d, affine=False)
     elif norm_type == 'none':
         norm_layer = None
@@ -139,6 +155,10 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch',
         netG = UnetGenerator(input_nc, output_nc, 8, ngf,
                              norm_layer=norm_layer, use_dropout=use_dropout,
                              gpu_ids=gpu_ids)
+    elif which_model_netG == 'unet_64_3d':
+        netG = UnetGenerator(input_nc, output_nc, 6, ngf,
+                             norm_layer=norm_layer, use_dropout=use_dropout,
+                             conv=nn.Conv3d, deconv=nn.ConvTranspose3d)
     elif which_model_netG == 'gan_3d':
         netG = Gan3dGenerator(input_nc, ngf, 3, norm_layer=norm_layer,
                               gpu_ids=gpu_ids)
@@ -172,6 +192,14 @@ def define_D(input_nc, ndf, which_model_netD, n_layers_D=3, norm='batch', use_si
         netD = PixelDiscriminator(
             input_nc, ndf, norm_layer=norm_layer, use_sigmoid=use_sigmoid,
             gpu_ids=gpu_ids)
+    elif which_model_netD == 'n_layers_3d':
+        netD = NLayerDiscriminator(
+            input_nc, ndf, n_layers_D, norm_layer=norm_layer,
+            use_sigmoid=use_sigmoid, gpu_ids=gpu_ids, conv=nn.Conv3d)
+    elif which_model_netD == 'voxel':
+        netD = PixelDiscriminator(
+            input_nc, ndf, norm_layer=norm_layer, use_sigmoid=use_sigmoid,
+            gpu_ids=gpu_ids, conv=nn.Conv3d)
     elif which_model_netD == 'gan_3d':
         netG = Gan3dDiscriminator(
             input_nc, ngf, 3, norm_layer=norm_layer, gpu_ids=gpu_ids)
@@ -353,7 +381,8 @@ class ResnetBlock(nn.Module):
         self.conv_block = self.build_conv_block(
             dim, padding_type, norm_layer, use_dropout, use_bias)
 
-    def build_conv_block(self, dim, padding_type, norm_layer, use_dropout, use_bias):
+    def build_conv_block(self, dim, padding_type, norm_layer, use_dropout,
+                         use_bias, conv=nn.Conv2d):
         conv_block = []
         p = 0
         # add 1px padding to input
@@ -370,7 +399,7 @@ class ResnetBlock(nn.Module):
         # 2d conv, same number of output channels as input, 3x3 kernels
         # Then batch normalize and RelU, and dropout if needed
         conv_block += [
-            nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias),
+            conv(dim, dim, kernel_size=3, padding=p, bias=use_bias),
             norm_layer(dim),
             nn.ReLU(True)]
         if use_dropout:
@@ -390,7 +419,7 @@ class ResnetBlock(nn.Module):
         # 2d conv, same number of output channels as input 3x3 kernels, then
         # batch normalize
         conv_block += [
-            nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias),
+            conv(dim, dim, kernel_size=3, padding=p, bias=use_bias),
             norm_layer(dim)]
 
         return nn.Sequential(*conv_block)
@@ -451,7 +480,8 @@ class UnetGenerator(nn.Module):
     '''
 
     def __init__(self, input_nc, output_nc, num_downs, ngf=64,
-                 norm_layer=nn.BatchNorm2d, use_dropout=False, gpu_ids=[]):
+                 norm_layer=nn.BatchNorm2d, use_dropout=False, gpu_ids=[],
+                 conv=nn.Conv2d, deconv=nn.ConvTranspose2d):
         '''
         Args:
             num_downs:  number of downsamplings in the Unet.
@@ -461,23 +491,24 @@ class UnetGenerator(nn.Module):
 
         # blocks are built recursively starting from innermost moving out
         unet_block = UnetSkipConnectionBlock(
-            ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True)
+            ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True, conv=conv, deconv=deconv)
         for i in range(num_downs - 5):
             unet_block = UnetSkipConnectionBlock(
                 ngf * 8, ngf * 8, input_nc=None, submodule=unet_block,
-                norm_layer=norm_layer, use_dropout=use_dropout)
+                norm_layer=norm_layer, use_dropout=use_dropout, conv=conv,
+                deconv=deconv)
         unet_block = UnetSkipConnectionBlock(
             ngf * 4, ngf * 8, input_nc=None, submodule=unet_block,
-                norm_layer=norm_layer)
+                norm_layer=norm_layer, conv=conv, deconv=deconv)
         unet_block = UnetSkipConnectionBlock(
             ngf * 2, ngf * 4, input_nc=None, submodule=unet_block,
-                norm_layer=norm_layer)
+                norm_layer=norm_layer, conv=conv, deconv=deconv)
         unet_block = UnetSkipConnectionBlock(
             ngf, ngf * 2, input_nc=None, submodule=unet_block,
-                norm_layer=norm_layer)
+                norm_layer=norm_layer, conv=conv, deconv=deconv)
         unet_block = UnetSkipConnectionBlock(
             output_nc, ngf, input_nc=input_nc, submodule=unet_block,
-                outermost=True, norm_layer=norm_layer)
+                outermost=True, norm_layer=norm_layer, conv=conv, deconv=deconv)
 
         self.model = unet_block
 
@@ -497,20 +528,22 @@ class UnetSkipConnectionBlock(nn.Module):
 
     def __init__(self, outer_nc, inner_nc, input_nc=None, submodule=None,
                  outermost=False, innermost=False, norm_layer=nn.BatchNorm2d,
-                 use_dropout=False):
+                 use_dropout=False, conv=nn.Conv2d, deconv=nn.ConvTranspose2d):
         super(UnetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
         # bias only if we're doing instance normalization
         if type(norm_layer) == functools.partial:
-            use_bias = norm_layer.func == nn.InstanceNorm2d
+            use_bias = (norm_layer.func == nn.InstanceNorm2d) or (
+                norm_layer.func == nn.InstanceNorm3d)
         else:
-            use_bias = norm_layer.func == nn.InstanceNorm2d
+            use_bias = (norm_layer == nn.InstanceNorm2d) or (
+                norm_layer == nn.InstanceNorm3d)
         if input_nc is None:
             input_nc = outer_nc
         # basic building blocks
         # Conv2d: inputC -> innerC, 4x4 kernel size, 2 stride, 1 padding
-        downconv = nn.Conv2d(input_nc, inner_nc, kernel_size=4, stride=2,
-                             padding=1, bias=use_bias)
+        downconv = conv(input_nc, inner_nc, kernel_size=4, stride=2,
+                        padding=1, bias=use_bias)
         downrelu = nn.LeakyReLU(0.2, True)
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)
@@ -521,8 +554,8 @@ class UnetSkipConnectionBlock(nn.Module):
             # then submodule
             # ReLU -> Deconv2d: innerC*2 -> outerC, 4x4 kernel size, ...
             # Tanh
-            upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc, kernel_size=4,
-                                        stride=2, padding=1)
+            upconv = deconv(inner_nc * 2, outer_nc, kernel_size=4,
+                            stride=2, padding=1)
             down = [downconv]
             up = [uprelu, upconv, nn.Tanh()]
             model = down + [submodule] + up
@@ -530,8 +563,8 @@ class UnetSkipConnectionBlock(nn.Module):
             # LeakyReLU -> Conv2d
             # ReLU -> Deconv2d: innerC -> outerC, 4x4 kernel size, 2 stride...
             # Normalize
-            upconv = nn.ConvTranspose2d(inner_nc, outer_nc, kernel_size=4,
-                                        stride=2, padding=1, bias=use_bias)
+            upconv = deconv(inner_nc, outer_nc, kernel_size=4,
+                            stride=2, padding=1, bias=use_bias)
             down = [downrelu, downconv]
             up = [uprelu, upconv, upnorm]
             model = down + up
@@ -539,8 +572,8 @@ class UnetSkipConnectionBlock(nn.Module):
             # LeakyReLU -> Conv2d -> Normalize
             # then submodule
             # ReLU -> Deconv2d -> Normalize
-            upconv = nn.ConvTranspose2d(inner_nc * 2, outer_nc, kernel_size=4,
-                                        stride=2, padding=1, bias=use_bias)
+            upconv = deconv(inner_nc * 2, outer_nc, kernel_size=4,
+                            stride=2, padding=1, bias=use_bias)
             down = [downrelu, downconv, downnorm]
             up = [uprelu, upconv, upnorm]
 
@@ -556,6 +589,7 @@ class UnetSkipConnectionBlock(nn.Module):
             return self.model(x)
         else:
             # Apply connections if inner modules
+            # TODO: might need to check if cat dimension needs to change
             return torch.cat([x, self.model(x)], 1)
 
 
@@ -584,18 +618,20 @@ class NLayerDiscriminator(nn.Module):
         - Sigmoid
     '''
 
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, gpu_ids=[]):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, gpu_ids=[], conv=nn.Conv2d):
         super(NLayerDiscriminator, self).__init__()
         self.gpu_ids = gpu_ids
         if type(norm_layer) == functools.partial:
-            use_bias = norm_layer.func == nn.InstanceNorm2d
+            use_bias = (norm_layer.func == nn.InstanceNorm2d) or (
+                norm_layer.func == nn.InstanceNorm3d)
         else:
-            use_bias = norm_layer == nn.InstanceNorm2d
+            use_bias = (norm_layer == nn.InstanceNorm2d) or (
+                norm_layer == nn.InstanceNorm3d)
 
         kw = 4
         padw = 1
         sequence = [
-            nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw),
+            conv(input_nc, ndf, kernel_size=kw, stride=2, padding=padw),
             nn.LeakyReLU(0.2, True)]
 
         nf_mult = 1
@@ -608,14 +644,14 @@ class NLayerDiscriminator(nn.Module):
             nf_mult_prev = nf_mult
             nf_mult = min(2 ** n, 8)
             sequence += [
-                nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw,
-                          stride=2, padding=padw, bias=use_bias),
+                conv(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw,
+                     stride=2, padding=padw, bias=use_bias),
                 norm_layer(ndf * nf_mult),
                 nn.LeakyReLU(0.2, True)]
 
         # Final Conv2d: 2 ** n * ndf -> 1, 4x4 kernels
-        sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1,
-                               padding=padw)]
+        sequence += [conv(ndf * nf_mult, 1, kernel_size=kw, stride=1,
+                          padding=padw)]
         if use_sigmoid:
             sequence += [nn.Sigmoid()]
         self.model = nn.Sequential(*sequence)
@@ -640,22 +676,24 @@ class PixelDiscriminator(nn.Module):
         - Sigmoid
     '''
 
-    def __init__(self, input_nc, ndf=64, norm_layer=nn.BatchNorm2d, use_sigmoid=False, gpu_ids=[]):
+    def __init__(self, input_nc, ndf=64, norm_layer=nn.BatchNorm2d, use_sigmoid=False, gpu_ids=[], conv=nn.Conv2d):
         super(PixelDiscriminator, self).__init__()
         self.gpu_ids = gpu_ids
         if type(norm_layer) == functools.partial:
-            use_bias = norm_layer.func == nn.InstanceNorm2d
+            use_bias = (norm_layer.func == nn.InstanceNorm2d) or (
+                norm_layer.func == nn.InstanceNorm3d)
         else:
-            use_bias = norm_layer == nn.InstanceNorm2d
+            use_bias = (norm_layer == nn.InstanceNorm2d) or (
+                norm_layer == nn.InstanceNorm3d)
 
         self.net = [
-            nn.Conv2d(input_nc, ndf, kernel_size=1, stride=1, padding=0),
-                nn.LeakyReLU(0.2, True),
-                nn.Conv2d(ndf, ndf * 2, kernel_size=1,
-                          stride=1, padding=0, bias=use_bias),
-                norm_layer(ndf * 2),
-                nn.LeakyReLU(0.2, True),
-                nn.Conv2d(ndf * 2, 1, kernel_size=1, strid=1, padding=0, bias=use_bias)]
+            conv(input_nc, ndf, kernel_size=1, stride=1, padding=0),
+            nn.LeakyReLU(0.2, True),
+            conv(ndf, ndf * 2, kernel_size=1,
+                 stride=1, padding=0, bias=use_bias),
+            norm_layer(ndf * 2),
+            nn.LeakyReLU(0.2, True),
+            conv(ndf * 2, 1, kernel_size=1, strid=1, padding=0, bias=use_bias)]
 
         if use_sigmoid:
             self.net.append(nn.Sigmoid())

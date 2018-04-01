@@ -21,8 +21,9 @@ def CreateDataset(opt):
     elif opt.dataset_mode == 'slice':
         from data.slice_dataset import SliceDataset
         dataset = SliceDataset()
-    elif opt.dataset_mode == 'vox':
-        raise NotImplementedError("Soon.")
+    elif opt.dataset_mode == 'voxel':
+        from data.voxel_dataset import VoxelDataset
+        dataset = VoxelDataset()
     else:
         raise ValueError("Dataset [%s] not recognized." % opt.dataset_mode)
 

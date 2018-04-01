@@ -10,6 +10,10 @@ def create_model(opt):
         assert(opt.dataset_mode == 'aligned' or opt.dataset_mode == 'slice')
         from .pix2pix_model import Pix2PixModel
         model = Pix2PixModel()
+    elif opt.model == 'vox2vox':
+        assert(opt.dataset_mode == 'voxel')
+        from .vox2vox_model import Vox2VoxModel
+        model = Vox2VoxModel()
     elif opt.model == 'test':
         assert(opt.dataset_mode == 'single')
         from .test_model import TestModel

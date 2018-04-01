@@ -5,8 +5,8 @@ import time
 from . import util
 from . import html
 from scipy.misc import imresize
-from scipy.io import savemat 
-import pudb
+from scipy.io import savemat
+
 
 class Visualizer():
 
@@ -19,6 +19,8 @@ class Visualizer():
         self.win_size = opt.display_winsize
         self.name = opt.name
         self.opt = opt
+        if '3d' in opt.which_model_netG:
+            self.video_mode = True
         self.saved = False
         if self.display_id > 0:
             import visdom
@@ -80,17 +82,24 @@ class Visualizer():
             else:
                 idx = 1
                 for label, image_numpy in visuals.items():
-                    self.vis.image(
-                        image_numpy.transpose([2, 0, 1]), opts=dict(title=label),
-                                   win=self.display_id + idx)
+                    if self.video_mode:
+                        self.vis.video(image_numpy, opts=dict(title=label),
+                                       win=self.display_id + idx)
+                    else:
+                        self.vis.image(image_numpy.transpose([2, 0, 1]),
+                                       opts=dict(title=label),
+                                       win=self.display_id + idx)
                     idx += 1
 
         if self.use_html and (save_result or not self.saved):  # save images to a html file
             self.saved = True
-            for label, image_numpy in visuals.items():
-                img_path = os.path.join(
-                    self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
-                util.save_image(image_numpy, img_path)
+            if self.video_mode:
+                pass
+            else:
+                for label, image_numpy in visuals.items():
+                    img_path = os.path.join(
+                        self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
+                    util.save_image(image_numpy, img_path)
             # update website
             webpage = html.HTML(
                 self.web_dir, 'Experiment name = %s' % self.name, reflesh=1)
@@ -168,6 +177,5 @@ class Visualizer():
         mat_name = '%s_%s.mat' % (name, label)
         mat_dir = webpage.get_mat_dir()
         save_path = os.path.join(mat_dir, mat_name)
-        mat = {label : im}
+        mat = {label: im}
         savemat(save_path, mat, do_compression=True)
-

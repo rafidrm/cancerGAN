@@ -40,9 +40,9 @@ class BaseOptions():
                                  help='name of the experiment. It decides where to store samples and models')
         self.parser.add_argument(
             '--dataset_mode', type=str, default='unaligned',
-                                 help='chooses how datasets are loaded. [slice | aligned | unaligned | single]')
+                                 help='chooses how datasets are loaded. [voxel | slice | aligned | unaligned | single]')
         self.parser.add_argument('--model', type=str, default='pix2pix',
-                                 help='chooses which model to use. cycle_gan, pix2pix, test')
+                                 help='chooses which model to use. cycle_gan, pix2pix,vox2vox, test')
         self.parser.add_argument(
             '--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
         self.parser.add_argument(
@@ -50,7 +50,7 @@ class BaseOptions():
         self.parser.add_argument(
             '--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
         self.parser.add_argument(
-            '--norm', type=str, default='instance', help='instance normalization or batch normalization')
+            '--norm', type=str, default='instance', help='instance normalization or batch normalization [batch | instance | batch_3d | instance_3d]')
         self.parser.add_argument('--serial_batches', action='store_true',
                                  help='if true, takes images in order to make batches, otherwise takes them randomly')
         self.parser.add_argument(
