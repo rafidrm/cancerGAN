@@ -25,6 +25,7 @@ python setup.py install
 ```bash
 pip install visdom
 pip install dominate
+pip install opencv-python
 ```
 - Add checkpoints and datasets directories.
 ```
@@ -44,4 +45,8 @@ python train.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2p
 - Testing on cancer dataset:
 ```
 python test.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction AtoB --dataset_mode slice --norm batch --loadSize 256
+```
+- Training 3d cancer dataset:
+```
+python train.py --dataroot ./datasets/cancer_3d --name cancer_vox2vox --model vox2vox --which_model_netG unet_64_3d --which_model_netD n_layers_3d --which_direction AtoB --dataset_mode voxel --norm batch_3d --loadSize 64 --fineSize 64 --print_freq 200 --gpu_ids 0
 ```

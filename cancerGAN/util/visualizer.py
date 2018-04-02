@@ -46,7 +46,7 @@ class Visualizer():
     def display_current_results(self, visuals, epoch, save_result):
         if self.display_id > 0:  # show images in the browser
             ncols = self.opt.display_single_pane_ncols
-            if ncols > 0:
+            if ncols > 0:  # TODO: i usually dont use this feature.
                 h, w = next(iter(visuals.values())).shape[:2]
                 table_css = """<style>
                         table {border-collapse: separate; border-spacing:4px; white-space:nowrap; text-align:center}
@@ -83,7 +83,7 @@ class Visualizer():
                 idx = 1
                 for label, image_numpy in visuals.items():
                     if self.video_mode:
-                        self.vis.video(image_numpy, opts=dict(title=label),
+                        self.vis.video(tensor=image_numpy, opts=dict(title=label),
                                        win=self.display_id + idx)
                     else:
                         self.vis.image(image_numpy.transpose([2, 0, 1]),

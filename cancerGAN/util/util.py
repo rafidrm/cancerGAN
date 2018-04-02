@@ -10,7 +10,7 @@ def vox2tensor(img):
     ''' Converts a Numpy array (D x H x W x C) to a voxel Tensor
     ( C x D x H x W )
     '''
-    if not(img.ndim == 4):
+    if img.ndim == 4:
         img = img.transpose((3, 0, 1, 2))
         img = torch.from_numpy(img)
         if isinstance(img, torch.ByteTensor):
@@ -24,7 +24,7 @@ def vox2tensor(img):
 
 def normalize3d(img, mean, std):
     ''' Normalizes a voxel Tensor (C x D x H x W) by mean and std. '''
-    if len(mean) != 3 or len(std) != 3:
+    if len(mean) != 4 or len(std) != 4:
         raise TypeError('not enough means and standard deviations')
     for t, m, s in zip(img, mean, std):
         t.sub_(m).div_(s)
