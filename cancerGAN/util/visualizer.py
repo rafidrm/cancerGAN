@@ -6,6 +6,7 @@ from . import util
 from . import html
 from scipy.misc import imresize
 from scipy.io import savemat
+from skvideo.io import vwrite
 
 
 class Visualizer():
@@ -44,6 +45,37 @@ class Visualizer():
 
     # |visuals|: dictionary of images to display or save
     def display_current_results(self, visuals, epoch, save_result):
+        if self.use_html and (save_result or not self.saved):  # save images to a html file
+            self.saved = True
+            if self.video_mode:
+                for label, video_numpy in visuals.items():
+                    vid_path = os.path.join(
+                        self.vid_dir, 'epoch%.3d_%s.webm' % (epoch, label))
+                    pu.db
+                    vwrite(vid_path, video_numpy) 
+
+            else:
+                for label, image_numpy in visuals.items():
+                    img_path = os.path.join(
+                        self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
+                    util.save_image(image_numpy, img_path)
+            # update website
+            webpage = html.HTML(
+                self.web_dir, 'Experiment name = %s' % self.name, reflesh=1)
+            for n in range(epoch, 0, -1):
+                webpage.add_header('epoch [%d]' % n)
+                ims = []
+                txts = []
+                links = []
+
+                for label, image_numpy in visuals.items():
+                    img_path = 'epoch%.3d_%s.png' % (n, label)
+                    ims.append(img_path)
+                    txts.append(label)
+                    links.append(img_path)
+                webpage.add_images(ims, txts, links, width=self.win_size)
+            webpage.save()
+        
         if self.display_id > 0:  # show images in the browser
             ncols = self.opt.display_single_pane_ncols
             if ncols > 0:  # TODO: i usually dont use this feature.
@@ -79,7 +111,7 @@ class Visualizer():
                 label_html = '<table>%s</table>' % label_html
                 self.vis.text(table_css + label_html, win=self.display_id + 2,
                               opts=dict(title=title + ' labels'))
-            else:
+            else: # TODO: I need to edit this part
                 idx = 1
                 for label, image_numpy in visuals.items():
                     if self.video_mode:
@@ -91,31 +123,6 @@ class Visualizer():
                                        win=self.display_id + idx)
                     idx += 1
 
-        if self.use_html and (save_result or not self.saved):  # save images to a html file
-            self.saved = True
-            if self.video_mode:
-                pass
-            else:
-                for label, image_numpy in visuals.items():
-                    img_path = os.path.join(
-                        self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
-                    util.save_image(image_numpy, img_path)
-            # update website
-            webpage = html.HTML(
-                self.web_dir, 'Experiment name = %s' % self.name, reflesh=1)
-            for n in range(epoch, 0, -1):
-                webpage.add_header('epoch [%d]' % n)
-                ims = []
-                txts = []
-                links = []
-
-                for label, image_numpy in visuals.items():
-                    img_path = 'epoch%.3d_%s.png' % (n, label)
-                    ims.append(img_path)
-                    txts.append(label)
-                    links.append(img_path)
-                webpage.add_images(ims, txts, links, width=self.win_size)
-            webpage.save()
 
     # errors: dictionary of error labels and values
     def plot_current_errors(self, epoch, counter_ratio, opt, errors):
