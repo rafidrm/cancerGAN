@@ -6,19 +6,44 @@ from sklearn.model_selection import train_test_split
 from scipy.io import loadmat, savemat
 
 
-def ttsplit_and_copy(aaron_dir, data_dir, train, test):
+
+def patientwise_splitting(train, test, img_list):
+    patient_ids = [f.split('_')[1] for f in img_list]
+    patient_ids = list(set(patient_ids))
+    train_ids, test_ids = train_test_split(patient_ids, train_size=train)
+    test_ids, val_ids = train_test_split(patient_ids, train_size=test)
+    x_train = []
+    x_test = []
+    x_val = []
+    for fname in img_list:
+        patient_id = fname.split('_')[1]
+        if patient_id in train_ids:
+            x_train.append(fname)
+        elif patient_id in test_ids:
+            x_test.append(fname)
+        elif patient_id in val_ids:
+            x_val.append(fname)
+        else:
+            raise ValueError('file [{}] is not in train-test-split'.format(fname))
+    return x_train, x_test, x_val
+
+
+def ttsplit_and_copy(aaron_dir, data_dir, train, test, split_by_patient=False):
     img_list = os.listdir(aaron_dir)
-    x_train, x_test = train_test_split(img_list, train_size=train)
-    x_test, x_val = train_test_split(x_test, train_size=test)
+    if split_by_patient:
+        x_train, x_test, x_val = patientwise_splitting(train, test, img_list)
+    else:
+        x_train, x_test = train_test_split(img_list, train_size=train)
+        x_test, x_val = train_test_split(x_test, train_size=test)
     for fname in tqdm(x_train):
         shutil.copy(os.path.join(aaron_dir, fname),
-                    os.path.join(data_dir, 'train', fname))
+                os.path.join(data_dir, 'train', fname))
     for fname in tqdm(x_test):
         shutil.copy(os.path.join(aaron_dir, fname),
-                    os.path.join(data_dir, 'test', fname))
+                os.path.join(data_dir, 'test', fname))
     for fname in tqdm(x_val):
         shutil.copy(os.path.join(aaron_dir, fname),
-                    os.path.join(data_dir, 'val', fname))
+                os.path.join(data_dir, 'val', fname))
 
 
 def move_to_cancerGAN(aaron_dir, data_dir, new_dir=None, train=0.6, test=0.5):
@@ -28,13 +53,13 @@ def move_to_cancerGAN(aaron_dir, data_dir, new_dir=None, train=0.6, test=0.5):
     if new_dir is not None:
         for i in tqdm(range(num_files)):
             shutil.copy(os.path.join(aaron_dir, img_list[i]),
-                        os.path.join(new_dir, '{}.jpg'.format(i + 1)))
+                    os.path.join(new_dir, '{}.jpg'.format(i + 1)))
         aaron_dir = new_dir
 
     ttsplit_and_copy(aaron_dir, data_dir, train, test)
 
 
-def collect_parse_mat_slices(aaron_dir, data_dir, new_dir=None, train=0.6, test=0.5):
+def collect_parse_mat_slices(aaron_dir, data_dir, new_dir=None, train=0.6, test=0.5, split_by_patient=False, with_copy=False):
     ''' Takes 2 folders, merges them appropriately, then ttsplit and resave.'''
     if new_dir is not None and len(aaron_dir) == 2:
         clin_dir == aaron_dir[0]
@@ -43,19 +68,35 @@ def collect_parse_mat_slices(aaron_dir, data_dir, new_dir=None, train=0.6, test=
         ct_list = os.listdir(ct_dir)
         for clinFile in tqdm(clin_list):
             if os.path.isfile(os.path.join(ct_dir, clinFile)):
-                clin = loadmat(os.path.join(clin_dir, clinFile))
-                ct = loadmat(os.path.join(ct_dir, clinFile))
-                mDict = {'dMs': clin['dMs'], 'iMs': ct['iMs']}
-                saveFile = os.path.join(new_dir, clinFile)
-                savemat(saveFile, mDict)
+                try:
+                    clin = loadmat(os.path.join(clin_dir, clinFile))
+                    ct = loadmat(os.path.join(ct_dir, clinFile))
+                    mDict = {'dMs': clin['dMs'], 'iMs': ct['iMs']}
+                    saveFile = os.path.join(new_dir, clinFile)
+                    savemat(saveFile, mDict)
+                except:
+                    pass
             else:
                 print(
-                    'File [{}] does not exist in CT directory'.format(clinFile))
-        aaron_dir = new_dir
-    elif len(aaron_dir > 1):
-        raise ValueError
+                        'File [{}] does not exist in CT directory'.format(clinFile))
+                aaron_dir = new_dir
 
-    ttsplit_and_copy(aaron_dir, data_dir, train, test)
+    ttsplit_and_copy(aaron_dir, data_dir, train, test, split_by_patient)
+
+
+
+def test_corruptions(aaron_dir, new_dir):
+    img_list = os.listdir(aaron_dir)
+    for img_file in tqdm(img_list):
+        try:
+            img = loadmat(os.path.join(aaron_dir, img_file))
+            shutil.copy(os.path.join(aaron_dir, img_file), os.path.join(new_dir, img_file))
+            # imgDict = {'dMs': img['dMs'], 'iMs': img['iMs']}
+            # savefile = os.path.join(new_dir, img_file)
+            # savemat(savefile, imgDict)
+        except:
+            print('Failed on file [{}]'.format(img_file))
+
 
 
 if __name__ == '__main__':
@@ -64,8 +105,15 @@ if __name__ == '__main__':
     # data_dir = '/home/rm/Python/cancerGAN/cancerGAN/datasets/cancer'
     # move_to_cancerGAN(aaron_dir, data_dir)
 
-    clin_dir = 'Clin_dose_Mat_files/'
-    ct_dir = 'CT_Mat_files/'
-    aaron_dir = (clin_dir, ct_dir)
-    data_dir = '/home/rm/Python/cancerGAN/cancerGAN/datasets/cancer_mat'
-    collect_parse_mat_slices(aaron_dir, data_dir, new_dir='merged_Mat')
+    # clin_dir = 'Clin_dose_Mat_files/'
+    # ct_dir = 'CT_Mat_files/'
+    # aaron_dir = (clin_dir, ct_dir)
+    aaron_dir = 'MedPhys_Gan_3D'
+    data_dir = '/home/rafid/Python/cancerGAN/cancerGAN/datasets/cancer_3d'
+    new_dir = 'merged_3d'
+
+    # test_corruptions(aaron_dir, new_dir='merged_3d')
+    # collect_parse_mat_slices(aaron_dir, data_dir, new_dir='merged_mat')
+    # collect_parse_mat_slices(new_dir, data_dir, split_by_patient=True)
+    # collect_parse_mat_slices(aaron_dir, data_dir)
+    collect_parse_mat_slices(new_dir, data_dir)
