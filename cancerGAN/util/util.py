@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import torch
 from PIL import Image
+from skimage.transform import rescale
 import os
 
 
@@ -44,13 +45,22 @@ def tensor2im(image_tensor, imtype=np.uint8):
     return image_numpy.astype(imtype)
 
 
-def tensor2vid(vid_tensor, vidtype=np.uint8):
+def tensor2vid(vid_tensor, vidtype=np.uint8, gray_to_rgb=True):
     ''' Converts a Tensor into a Numpy array but for video. '''
     vid_numpy = vid_tensor[0].cpu().float().numpy()
-    if vid_numpy.shape[0] == 1:
+    if vid_numpy.shape[0] == 1 and gray_to_rgb:
         vid_numpy = np.tile(vid_numpy, (3, 1, 1, 1))
     vid_numpy = (np.transpose(vid_numpy, (1, 2, 3, 0)) + 1) / 2.0 * 255.0
     return vid_numpy.astype(vidtype)
+
+
+def rescale_vid(vid, scale=4):
+    ''' scikit-video cannot efficiently upscale videos. '''
+    T, H, W, C = vid.shape
+    new_vid = np.zeros((T, H * scale, W * scale, C))
+    for it, ic in zip(range(T), range(C)):
+        new_vid[it, :, :, ic] = rescale(vid[it, :, :, ic], scale)
+    return new_vid
 
 
 def diagnose_network(net, name='network'):
@@ -77,8 +87,9 @@ def print_numpy(x, val=True, shp=False):
         print('shape,', x.shape)
     if val:
         x = x.flatten()
-        print('mean = %3.3f, min = %3.3f, max = %3.3f, median = %3.3f, std=%3.3f' % (
-            np.mean(x), np.min(x), np.max(x), np.median(x), np.std(x)))
+        print(
+            'mean = %3.3f, min = %3.3f, max = %3.3f, median = %3.3f, std=%3.3f'
+            % (np.mean(x), np.min(x), np.max(x), np.median(x), np.std(x)))
 
 
 def mkdirs(paths):

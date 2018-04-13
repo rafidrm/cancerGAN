@@ -5,11 +5,12 @@ import torch
 from data.base_dataset import BaseDataset
 from data.image_folder import make_dataset
 from scipy.io import loadmat
+from skimage.transform import rescale
 import pudb
+import numpy as np
 
 
 class SliceDataset(BaseDataset):
-
     def initialize(self, opt):
         self.opt = opt
         self.root = opt.dataroot
@@ -17,17 +18,33 @@ class SliceDataset(BaseDataset):
         # go through directory return os.path for all images
         slice_filetype = ['.mat']
         self.AB_paths = sorted(make_dataset(self.dir_AB, slice_filetype))
-        assert self.opt.loadSize == self.opt.fineSize, 'No resize or cropping.'
+        # assert self.opt.loadSize == self.opt.fineSize, 'No resize or cropping.'
 
     def __getitem__(self, index):
         AB_path = self.AB_paths[index]
-
         mat = loadmat(AB_path)
         dose_img = mat['dMs']
         ct_img = mat['iMs']
         w, h, nc = ct_img.shape
-        assert w == self.opt.loadSize, 'size mismatch in width'
-        assert h == self.opt.loadSize, 'size mismatch in height'
+        # assert w == self.opt.loadSize, 'size mismatch in width'
+        #assert h == self.opt.loadSize, 'size mismatch in height'
+
+        # scale
+        # TODO: Test this feature
+        scale_to = int(self.opt.loadSize / w)
+        new_ct_img = np.zeros((w, h, nc))
+        new_dose_img = np.zeros((w, h, nc))
+        for ic in range(nc):
+            new_ct_img[:, :, ic] = rescale(ct_img[:, :, ic], scale_to)
+            new_dose_img[:, :, ic] = rescale(dose_img[:, :, ic], scale_to)
+        ct_img = new_ct_img
+        dose_img = new_dose_img
+
+        # to handle aaron's weird uint format
+        if dose_img.dtype == np.uint16:
+            dose_img = dose_img / 256
+        if ct_img.dtype == np.uint16:
+            ct_img = ct_img / 256
 
         A = transforms.ToTensor()(ct_img).float()
         B = transforms.ToTensor()(dose_img).float()
@@ -47,11 +64,11 @@ class SliceDataset(BaseDataset):
             B = B.index_select(2, idx)
 
         # by default assume 3 channels, but if 1 channel then have to greyscale
-        if input_nc == 1:   # RGB to gray
+        if input_nc == 1:  # RGB to gray
             tmp = A[0, ...] * 0.299 + A[1, ...] * 0.587 + A[2, ...] * 0.114
             A = tmp.unsqueeze(0)
 
-        if output_nc == 1:   # RGB to gray
+        if output_nc == 1:  # RGB to gray
             tmp = B[0, ...] * 0.299 + B[1, ...] * 0.587 + B[2, ...] * 0.114
             B = tmp.unsqueeze(0)
 

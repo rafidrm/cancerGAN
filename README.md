@@ -40,13 +40,13 @@ python train.py --dataroot ./datasets/facades --name facades_pix2pix --model pix
 ```
 - Training on cancer dataset:
 ```
-python train.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction AtoB --lambda_A 100 --dataset_mode slice --no_lsgan --norm batch --pool_size 0 --loadSize 256 --print_freq 200
+python train.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction AtoB --lambda_A 100 --dataset_mode slice --no_lsgan --norm batch --pool_size 0 --loadSize 256 --print_freq 200 --batchSize 16 --gpu_ids 0
 ```
 - Testing on cancer dataset:
 ```
-python test.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction AtoB --dataset_mode slice --norm batch --loadSize 256
+python test.py --dataroot ./datasets/cancer --name cancer_pix2pix --model pix2pix --which_model_netG unet_256 --which_direction AtoB --dataset_mode slice --norm batch --loadSize 256 --phase test --how_many 99999
 ```
 - Training 3d cancer dataset:
 ```
-python train.py --dataroot ./datasets/cancer_3d --name cancer_vox2vox --model vox2vox --which_model_netG unet_64_3d --which_model_netD n_layers_3d --which_direction AtoB --dataset_mode voxel --norm batch_3d --loadSize 64 --fineSize 64 --print_freq 200 --gpu_ids 0
+python train.py --dataroot ./datasets/voxels --name vox2vox --model vox2vox --which_model_netG unet_64_3d --which_model_netD n_layers_3d --which_direction AtoB --dataset_mode voxel --norm batch_3d --loadSize 64 --fineSize 64 --print_freq 100 --gpu_ids 0
 ```
