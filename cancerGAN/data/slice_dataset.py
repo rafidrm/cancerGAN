@@ -31,14 +31,14 @@ class SliceDataset(BaseDataset):
 
         # scale
         # TODO: Test this feature
-        scale_to = int(self.opt.loadSize / w)
-        new_ct_img = np.zeros((w, h, nc))
-        new_dose_img = np.zeros((w, h, nc))
-        for ic in range(nc):
-            new_ct_img[:, :, ic] = rescale(ct_img[:, :, ic], scale_to)
-            new_dose_img[:, :, ic] = rescale(dose_img[:, :, ic], scale_to)
-        ct_img = new_ct_img
-        dose_img = new_dose_img
+        # scale_to = int(self.opt.loadSize / w)
+        # new_ct_img = np.zeros((w, h, nc))
+        # new_dose_img = np.zeros((w, h, nc))
+        # for ic in range(nc):
+        #    new_ct_img[:, :, ic] = rescale(ct_img[:, :, ic], scale_to)
+        #    new_dose_img[:, :, ic] = rescale(dose_img[:, :, ic], scale_to)
+        # ct_img = new_ct_img
+        # dose_img = new_dose_img
 
         # to handle aaron's weird uint format
         if dose_img.dtype == np.uint16:

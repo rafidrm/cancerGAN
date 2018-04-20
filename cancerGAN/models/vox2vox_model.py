@@ -19,16 +19,11 @@ class Vox2VoxModel(BaseModel):
         self.no_img = opt.no_img and (opt.output_nc == 1)
 
         # load and define networks according to opts
-        self.netG = networks.define_G(
-            opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
-            opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
+        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
 
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
-            self.netD = networks.define_D(
-                opt.input_nc + opt.output_nc, opt.ndf, opt.which_model_netD,
-                opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type,
-                self.gpu_ids)
+            self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf, opt.which_model_netD, opt.n_layers_D, opt.norm, use_sigmoid, opt.init_type, self.gpu_ids)
 
         if not self.isTrain or opt.continue_train:
             self.load_network(self.netG, 'G', opt.which_epoch)
@@ -41,16 +36,16 @@ class Vox2VoxModel(BaseModel):
 
             # define loss functions
             self.criterionGAN = networks.GANLoss(
-                use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
+                    use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
             self.criterionL1 = torch.nn.L1Loss()
 
             # initialize optimizers
             self.schedulers = []
             self.optimizers = []
             self.optimizer_G = torch.optim.Adam(
-                self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+                    self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(
-                self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+                    self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
             for optimizer in self.optimizers:
@@ -93,7 +88,7 @@ class Vox2VoxModel(BaseModel):
         # add real_A, fake_B to query. Concatenates on axis=1
         # TODO: Why do we detach?
         fake_AB = self.fake_AB_pool.query(
-            torch.cat((self.real_A, self.fake_B), 1).data)
+                torch.cat((self.real_A, self.fake_B), 1).data)
         pred_fake = self.netD(fake_AB.detach())
         self.loss_D_fake = self.criterionGAN(pred_fake, False)
 
@@ -115,7 +110,7 @@ class Vox2VoxModel(BaseModel):
 
         # second G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B,
-                                          self.real_B) * self.opt.lambda_A
+                self.real_B) * self.opt.lambda_A
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
 
         self.loss_G.backward()
@@ -132,11 +127,7 @@ class Vox2VoxModel(BaseModel):
         self.optimizer_G.step()
 
     def get_current_errors(self):
-        return OrderedDict(
-            [('G_GAN', self.loss_G_GAN.data[0]), ('G_L1',
-                                                  self.loss_G_L1.data[0]),
-             ('D_real', self.loss_D_real.data[0]), ('D_fake',
-                                                    self.loss_D_fake.data[0])])
+        return OrderedDict([('G_GAN', self.loss_G_GAN.data[0]), ('G_L1', self.loss_G_L1.data[0]), ('D_real', self.loss_D_real.data[0]), ('D_fake', self.loss_D_fake.data[0])])
 
     def get_current_visuals(self):
         real_A = util.tensor2vid(self.real_A.data)
@@ -146,8 +137,7 @@ class Vox2VoxModel(BaseModel):
         else:
             fake_B = util.tensor2vid(self.fake_B.data)
             real_B = util.tensor2vid(self.real_B.data)
-        return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('real_B',
-                                                                     real_B)])
+        return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('real_B', real_B)])
 
     def save(self, label):
         self.save_network(self.netG, 'G', label, self.gpu_ids)

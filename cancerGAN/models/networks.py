@@ -208,9 +208,15 @@ def define_G(input_nc,
             use_dropout=use_dropout,
             conv=nn.Conv3d,
             deconv=nn.ConvTranspose3d)
-    elif which_model_netG == 'gan_3d':
-        netG = Gan3dGenerator(
-            input_nc, ngf, 3, norm_layer=norm_layer, gpu_ids=gpu_ids)
+    elif which_model_netG == 'unet_cnn':
+        netG = UnetCNNGenerator(
+            input_nc,
+            output_nc,
+            7,
+            ngf,
+            norm_layer=norm_layer,
+            use_dropout=use_dropout,
+            gpu_ids=gpu_ids)
     else:
         raise NotImplementedError(
             'Generator model name [{}] is not recognized'.format(
@@ -916,166 +922,127 @@ class PixelDiscriminator(nn.Module):
             return self.model(input)
 
 
-class Gan3dGenerator(nn.Module):
-    ''' Defines the 3dGAN generator. Used the Pytorch implementation from
-    https://github.com/rimchang/3DGAN-Pytorch for ideas.
+class UnetCNNGenerator(nn.Module):
+    ''' Defines the UNet-CNN from that one paper.
+    Architecture contains downsampling/upsampling operations, with Unet
+    connectors.
 
-    Architecture:
-        - Deconv3d: inputZ -> 256 channels, 4x4x4 kernels
-        - Normalize -> ReLU
-        - Deconv3d: 256 -> 128 channels, 4x4x4 kernels
-        - Normalize -> ReLU
-        - Deconv3d: 128 -> 64 channels, 4x4x4 kernels
-        - Normalize -> ReLU
-        - Deconv3d: 64 -> 32 channels, 4x4x4 kernels
-        - Normalize -> ReLU
-        - Deconv3d: 32 -> 1 channel, 4x4x4 kernels
-        - Sigmoid
+    - Outermost Unet:
+        - Conv2d: InputC -> 64, 4x4 kernels
+
+    - Outer Unets:
+        - Leaky ReLU (iv)
+        - Conv2d: 64 -> 128, 4x4 kernels
+        - Leaky ReLU (iii)
+        - Conv2d: 128 -> 256, 4x4 kernels
+        - Leaky ReLU (ii)
+        - Conv2d: 256 -> 512, 4x4 kernels
+
+    - Intermediate Unets (x num_downs):
+        - Leaky ReLU (i)
+        - Conv2d: 512 -> 512, 4x4 kernels
+
+    - Inner Unet:
+        - Leaky ReLU (a)
+        - Conv2d: 512 -> 512, 4x4 kernels
+        - ReLU
+        - Deconv2d: 512 -> 512, 4x4 kernels
+        - Normalize --> Connect to (a)
+
+    - Intermediate Unets continued:
+        - ReLU
+        - Deconv2d: 1024 -> 512, 4x4 kernels
+        - Normalize (-> Dropout ->) --> Connect to (i)
+
+    - Outer Unets:
+        - ReLU
+        - Deconv2d: 512 -> 256, 4x4 kernels
+        - Normalize (-> Dropout ->) --> Connect to (ii)
+        - ReLU
+        - Deconv2d: 256 -> 128, 4x4 kernels
+        - Normalize (-> Dropout ->) --> Connect to (iii)
+        - ReLU
+        - Deconv2d: 128 -> 64, 4x4 kernels
+        - Normalize (-> Dropout ->) --> Connect to (iv)
+
+    - Outermost Unet:
+        - ReLU
+        - Deconv2d: 128 -> outC, 4x4 kernels
+        - Tanh
     '''
 
     def __init__(self,
                  input_nc,
                  output_nc,
-                 ngf=32,
-                 norm_layer=nn.BatchNorm3d,
+                 num_downs,
+                 ngf=64,
+                 norm_layer=nn.BatchNorm2d,
                  use_dropout=False,
-                 gpu_ids=[]):
-        super(Gan3dGenerator, self).__init__()
-        # input and output number of channels
-        self.input_nc = input_nc  # z-space
-        self.output_nc = output_nc  # should be 1
-        self.ngf = ngf  # cube length
+                 gpu_ids=[],
+                 conv=nn.Conv2d,
+                 deconv=nn.ConvTranspose2d):
+        '''
+        Args:
+            num_downs:  number of downsamplings in the Unet.
+        '''
+        super(UnetCNNGenerator, self).__init__()
         self.gpu_ids = gpu_ids
-        padd = (1, 1, 1)
-        # bias only if we're doing instance normalization
-        if type(norm_layer) == functools.partial:
-            use_bias = norm_layer.func == nn.InstanceNorm3d
-        else:
-            use_bias = norm_layer == nn.InstanceNorm3d
 
-        model = [
-            nn.ConvTranspose3d(
-                input_nc,
+        # blocks are built recursively starting from innermost moving out
+        unet_block = UnetSkipConnectionBlock(
+            ngf * 8,
+            ngf * 8,
+            input_nc=None,
+            submodule=None,
+            norm_layer=norm_layer,
+            innermost=True,
+            conv=conv,
+            deconv=deconv)
+        for i in range(num_downs - 5):
+            unet_block = UnetSkipConnectionBlock(
                 ngf * 8,
-                kernel_size=4,
-                stride=2,
-                bias=use_bias,
-                padding=padd),
-            norm_layer(ngf * 8),
-            nn.ReLU(True)
-        ]
+                ngf * 8,
+                input_nc=None,
+                submodule=unet_block,
+                norm_layer=norm_layer,
+                use_dropout=use_dropout,
+                conv=conv,
+                deconv=deconv)
+        unet_block = UnetSkipConnectionBlock(
+            ngf * 4,
+            ngf * 8,
+            input_nc=None,
+            submodule=unet_block,
+            norm_layer=norm_layer,
+            conv=conv,
+            deconv=deconv)
+        unet_block = UnetSkipConnectionBlock(
+            ngf * 2,
+            ngf * 4,
+            input_nc=None,
+            submodule=unet_block,
+            norm_layer=norm_layer,
+            conv=conv,
+            deconv=deconv)
+        unet_block = UnetSkipConnectionBlock(
+            ngf,
+            ngf * 2,
+            input_nc=None,
+            submodule=unet_block,
+            norm_layer=norm_layer,
+            conv=conv,
+            deconv=deconv)
+        unet_block = UnetSkipConnectionBlock(
+            output_nc,
+            ngf,
+            input_nc=input_nc,
+            submodule=unet_block,
+            outermost=True,
+            norm_layer=norm_layer,
+            conv=conv,
+            deconv=deconv)
 
-        mult = 8
-        for i in range(3):
-            model += [
-                nn.ConvTranspose3d(
-                    ngf * mult,
-                    ngf * mult / 2,
-                    kernel_size=4,
-                    stride=2,
-                    bias=use_bias,
-                    padding=padd),
-                nn.norm_layer(ngf * mult / 2),
-                nn.ReLU(True)
-            ]
-            mult = mult / 2
-
-        model += [
-            nn.ConvTranspose3d(
-                ngf * mult,
-                1,
-                kernel_size=4,
-                stride=2,
-                bias=use_bias,
-                padding=padd),
-            nn.Sigmoid()
-        ]
-
-        self.model = nn.Sequential(*model)
-
-    def forward(self, input):
-        if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-            return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
-        else:
-            return self.model(input)
-
-
-class Gan3dDiscriminator(nn.Module):
-    ''' Defines the 3dGAN discriminator. Used the Pytorch implementation from
-    https://github.com/rimchang/3DGAN-Pytorch for ideas.
-
-    Architecture:
-        - Conv3d: 1 -> 32 channels, 4x4x4 kernels
-        - Normalize -> Leaky ReLU
-        - Conv3d: 32 -> 64 channels, 4x4x4 kernels
-        - Normalize -> Leaky ReLU
-        - Conv3d: 64 -> 128 channels, 4x4x4 kernels
-        - Normalize -> Leaky ReLU
-        - Conv3d: 128 -> 256 channels, 4x4x4 kernels
-        - Normalize -> Leaky ReLU
-        - Conv3d: 256 -> 1 channel, 4x4 kernels
-        - Sigmoid
-    '''
-
-    def __init__(self,
-                 input_nc=1,
-                 output_nc=1,
-                 ndf=32,
-                 norm_layer=nn.BatchNorm3d,
-                 use_dropout=False,
-                 gpu_ids=[]):
-        super(Gan3dDiscriminator, self).__init__()
-        # input and output number of channels
-        self.input_nc = input_nc  # should be 1
-        self.output_nc = output_nc  # should be 1
-        self.ndf = ndf  # cube length
-        self.gpu_ids = gpu_ids
-        padd = (1, 1, 1)
-        # bias only if we're doing instance normalization
-        if type(norm_layer) == functools.partial:
-            use_bias = norm_layer.func == nn.InstanceNorm3d
-        else:
-            use_bias = norm_layer == nn.InstanceNorm3d
-
-        model = [
-            nn.Conv3d(
-                input_nc,
-                ndf,
-                kernel_size=4,
-                stride=2,
-                bias=use_bias,
-                padding=padd),
-            norm_layer(ngf),
-            nn.LeakyReLU(0.2, True)
-        ]
-
-        mult = 1
-        for i in range(3):
-            model += [
-                nn.Conv3d(
-                    ndf * mult,
-                    ndf * mult * 2,
-                    kernel_size=4,
-                    stride=2,
-                    bias=use_bias,
-                    padding=padd),
-                nn.norm_layer(ndf * mult * 2),
-                nn.LeakyReLU(0.2, True)
-            ]
-            mult = mult * 2
-
-        model += [
-            nn.ConvTranspose3d(
-                ndf * mult,
-                1,
-                kernel_size=4,
-                stride=2,
-                bias=use_bias,
-                padding=padd),
-            nn.Sigmoid()
-        ]
-
-        self.model = nn.Sequential(*model)
+        self.model = unet_block
 
     def forward(self, input):
         if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):

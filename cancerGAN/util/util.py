@@ -25,7 +25,7 @@ def vox2tensor(img):
 
 def normalize3d(img, mean, std):
     ''' Normalizes a voxel Tensor (C x D x H x W) by mean and std. '''
-    if len(mean) != 4 or len(std) != 4:
+    if len(mean) < 3 or len(std) < 3:
         raise TypeError('not enough means and standard deviations')
     for t, m, s in zip(img, mean, std):
         t.sub_(m).div_(s)
@@ -41,7 +41,8 @@ def tensor2im(image_tensor, imtype=np.uint8):
     image_numpy = image_tensor[0].cpu().float().numpy()
     if image_numpy.shape[0] == 1:  # if it is greyscale
         image_numpy = np.tile(image_numpy, (3, 1, 1))
-    image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
+    image_numpy = np.transpose(image_numpy, (1, 2, 0))
+    image_numpy = (image_numpy + 1) / 2.0 * 255.0
     return image_numpy.astype(imtype)
 
 
@@ -50,7 +51,8 @@ def tensor2vid(vid_tensor, vidtype=np.uint8, gray_to_rgb=True):
     vid_numpy = vid_tensor[0].cpu().float().numpy()
     if vid_numpy.shape[0] == 1 and gray_to_rgb:
         vid_numpy = np.tile(vid_numpy, (3, 1, 1, 1))
-    vid_numpy = (np.transpose(vid_numpy, (1, 2, 3, 0)) + 1) / 2.0 * 255.0
+    vid_numpy = np.transpose(vid_numpy, (1, 2, 3, 0))
+    vid_numpy = (vid_numpy + 1) / 2.0 * 255.0
     return vid_numpy.astype(vidtype)
 
 

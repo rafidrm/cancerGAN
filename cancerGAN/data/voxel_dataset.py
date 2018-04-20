@@ -32,8 +32,8 @@ class VoxelDataset(BaseDataset):
         B = vox2tensor(dose_img).float()
 
         # ABs are 3-channel. Normalizing to 0.5 mean, 0.5 std
-        A = normalize3d(A, (0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5))
-        B = normalize3d(B, (0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5))
+        A = normalize3d(A, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        B = normalize3d(B, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
         # flipping augments the dataset by flipping a bunch of the images.
         if (not self.opt.no_flip) and random.random() < 0.5:
@@ -60,7 +60,7 @@ class VoxelDataset(BaseDataset):
         assert (d, w, h) == dose_val.shape, 'size mismatch between dose and ct'
 
         A = vox2tensor(ct_img).float()
-        A = normalize3d(A, (0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5))
+        A = normalize3d(A, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 
         B = torch.from_numpy(dose_val).float()
         B = B.unsqueeze(0)

@@ -3,7 +3,6 @@ import torch
 
 
 class BaseModel():
-
     def name(self):
         return 'BaseModel'
 
