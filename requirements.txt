@@ -6,7 +6,7 @@ idna==2.6
 numpy==1.14.2
 Pillow==5.0.0
 pudb==2017.1.4
-Pygments==2.2.0
+Pygments==2.7.4
 PyYAML==3.12
 pyzmq==17.0.0
 requests==2.18.4
