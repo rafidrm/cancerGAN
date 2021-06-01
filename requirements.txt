@@ -15,6 +15,6 @@ scipy==1.0.0
 six==1.11.0
 tornado==5.0.1
 tqdm==4.19.8
-urllib3==1.22
+urllib3==1.26.5
 urwid==2.0.1
 visdom==0.1.7
